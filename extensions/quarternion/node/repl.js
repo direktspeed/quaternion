@@ -1,6 +1,6 @@
 const net = require('node:net');
 const repl = require('node:repl');
-const { Duplex } = require('node:stream');
+const { Readable, Writable } = require('node:stream');
 const DataChannel = require('node-datachannel');
 let connections = 0;
 
@@ -10,13 +10,11 @@ repl.start({
   output: process.stdout,
 });
 
-net.createServer((socket) => {
-
-}).listen('/tmp/node-repl-sock');
-
 const channel = new nodeDataChannel.PeerConnection("nativMessaging", { iceServers: [
-//  "stun:stun.l.google.com:19302"
+  //  "stun:stun.l.google.com:19302"
 ] });
+
+useGlobal
 
 channel.onLocalDescription((sdp, type) => {
     console.log("SDP:", sdp, " Type:", type);
@@ -24,7 +22,7 @@ channel.onLocalDescription((sdp, type) => {
 });
 
 channel.onLocalCandidate((candidate, mid) => {
-    console.log("Candidate:", candidate);
+    //console.log("Candidate:", candidate);
     //peer1.addRemoteCandidate(candidate, mid);
 });
 
@@ -33,12 +31,16 @@ channel.onDataChannel((dc) => {
       repl(dc) {
         connections += 1;
         const repl = repl.start({
-          prompt: '',
+          prompt: '', useGlobal: true,
+          input: Readable.fromWeb(new ReadableStream({ 
+            start(c){ dc.onMessage((data)=>c.enqueue(data)); }
+          })),
+          output: Writable.fromWeb(new WritableStream({ 
+            write(output){ dc.sendMessage(output) }
+          })),
         }).on('exit', () => {
           dc?.end(); dc.close();
         });
-        dc.onMessage(socket.input.push);
-        socket.output.on('data',(data)=>dc.sendMessage(data));    
       }
     }
     supportedChannels[dc.getLabel()]?(dc);
